@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dragon vs Knight - Tic Tac Toe</title>
+  <style>
+    body {
+      background: #222831;
+      color: #eeeeee;
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      padding: 2rem;
+      transition: background 0.4s, color 0.4s;
+    }
+
+    body.light {
+      background: #f7f7f7;
+      color: #222831;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      color: #00adb5;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      grid-gap: 10px;
+      justify-content: center;
+      margin: 2rem auto;
+    }
+
+    .cell {
+      width: 100px;
+      height: 100px;
+      font-size: 2.5rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #393e46;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.3s, transform 0.3s;
+    }
+
+    body.light .cell {
+      background: #dddddd;
+    }
+
+    .cell:hover {
+      background: #575c66;
+    }
+
+    body.light .cell:hover {
+      background: #cccccc;
+    }
+
+    .cell.win {
+      background: #00adb5 !important;
+      animation: glow 1s ease-in-out infinite alternate;
+    }
+
+    @keyframes glow {
+      from { box-shadow: 0 0 10px #00adb5; }
+      to { box-shadow: 0 0 20px #00adb5, 0 0 30px #00adb5; }
+    }
+
+    .status, .scoreboard {
+      font-size: 1.2rem;
+      margin: 1rem 0;
+    }
+
+    .reset-btn, .theme-btn {
+      padding: 0.6rem 1.2rem;
+      font-size: 1rem;
+      margin: 0.5rem;
+      background: #00adb5;
+      border: none;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .reset-btn:hover, .theme-btn:hover {
+      background: #019aa2;
+    }
+
+    .emoji {
+      font-size: 1.5rem;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🐉 Dragon vs Knight 🛡️ Tic-Tac-Toe</h1>
+  <div class="scoreboard" id="scoreboard">Dragon 🐉: 0 | Knight 🛡️: 0</div>
+  <div class="board" id="board"></div>
+  <div class="status" id="status">Dragon 🐉's turn</div>
+  <button class="reset-btn" onclick="resetGame()">Reset Game</button>
+  <button class="theme-btn" onclick="toggleTheme()">Toggle Theme</button>
+  <div class="emoji" id="emoji"></div>
+
+  <audio id="move-sound" src="https://www.soundjay.com/button/beep-07.wav" preload="auto"></audio>
+  <audio id="win-sound" src="https://www.soundjay.com/human/applause-8.wav" preload="auto"></audio>
+
+  <script>
+    const board = document.getElementById('board');
+    const status = document.getElementById('status');
+    const emoji = document.getElementById('emoji');
+    const scoreboard = document.getElementById('scoreboard');
+    const moveSound = document.getElementById('move-sound');
+    const winSound = document.getElementById('win-sound');
+
+    let dragonScore = 0;
+    let knightScore = 0;
+    let currentPlayer = '🐉';
+    let cells = Array(9).fill(null);
+    let gameOver = false;
+    let winCombo = [];
+
+    function createBoard() {
+      board.innerHTML = '';
+      cells.forEach((_, i) => {
+        const cell = document.createElement('div');
+        cell.classList.add('cell');
+        cell.dataset.index = i;
+        cell.addEventListener('click', handleClick);
+        board.appendChild(cell);
+      });
+    }
+
+    function handleClick(e) {
+      const idx = e.target.dataset.index;
+      if (cells[idx] || gameOver || currentPlayer !== '🐉') return;
+
+      makeMove(idx, '🐉');
+      moveSound.play();
+      if (!gameOver) setTimeout(computerMove, 400);
+    }
+
+    function makeMove(index, player) {
+      if (cells[index]) return;
+      cells[index] = player;
+      board.children[index].textContent = player;
+
+      if (checkWin(player)) {
+        status.textContent = `🎉 ${player === '🐉' ? 'Dragon' : 'Knight'} wins!`;
+        emoji.textContent = player === '🐉' ? '🔥🐲🎉' : '🛡️⚔️🏆';
+        gameOver = true;
+        highlightWin();
+        if (player === '🐉') dragonScore++; else knightScore++;
+        winSound.play();
+        updateScoreboard();
+        return;
+      }
+
+      if (cells.every(cell => cell)) {
+        status.textContent = "It's a tie!";
+        emoji.textContent = '🤝';
+        gameOver = true;
+        return;
+      }
+
+      currentPlayer = player === '🐉' ? '🛡️' : '🐉';
+      status.textContent = `${currentPlayer === '🐉' ? 'Dragon' : 'Knight'} ${currentPlayer}'s turn`;
+    }
+
+    function computerMove() {
+      if (gameOver) return;
+      const empty = cells.map((v, i) => v ? null : i).filter(v => v !== null);
+      const best = findBestMove('🛡️') || findBestMove('🐉') || empty[Math.floor(Math.random() * empty.length)];
+      makeMove(best, '🛡️');
+      moveSound.play();
+    }
+
+    function findBestMove(player) {
+      const wins = getWinningCombos();
+      for (let combo of wins) {
+        const [a,b,c] = combo;
+        const values = [cells[a], cells[b], cells[c]];
+        if (values.filter(v => v === player).length === 2 && values.includes(null)) {
+          return combo[values.indexOf(null)];
+        }
+      }
+      return null;
+    }
+
+    function checkWin(player) {
+      const wins = getWinningCombos();
+      for (let combo of wins) {
+        if (cells[combo[0]] === player && cells[combo[1]] === player && cells[combo[2]] === player) {
+          winCombo = combo;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function highlightWin() {
+      winCombo.forEach(i => {
+        board.children[i].classList.add('win');
+      });
+    }
+
+    function resetGame() {
+      cells = Array(9).fill(null);
+      currentPlayer = '🐉';
+      gameOver = false;
+      winCombo = [];
+      emoji.textContent = '';
+      status.textContent = "Dragon 🐉's turn";
+      createBoard();
+    }
+
+    function updateScoreboard() {
+      scoreboard.textContent = `Dragon 🐉: ${dragonScore} | Knight 🛡️: ${knightScore}`;
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle('light');
+    }
+
+    function getWinningCombos() {
+      return [
+        [0,1,2], [3,4,5], [6,7,8],
+        [0,3,6], [1,4,7], [2,5,8],
+        [0,4,8], [2,4,6]
+      ];
+    }
+
+    // Initialize board
+    createBoard();
+  </script>
+
+</body>
+</html>
